@@ -1,4 +1,3 @@
-## Please, contact support@cardpay.com to get url_status_change URL
-url_status_change = ''
-url_status = 'https://cardpay.com/MI/service/order-report'
-url_pay = 'https://cardpay.com/MI/cardpayment.html'
+url_status_change='https://sandbox.cardpay.com/MI/service/order-change-status'
+url_status='https://sandbox.cardpay.com/MI/service/order-change-status'
+url_pay='https://sandbox.cardpay.com/MI/cardpayment.html'

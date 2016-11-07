@@ -5,10 +5,7 @@ class PyCardPayException(Exception):
 
 class XMLParsingError(PyCardPayException):
     """Raised when lxml failed to parse xml from string"""
-    def __init__(self, msg, content=None):
-        self.content = content
-        self.msg = msg
-        super(XMLParsingError, self).__init__(msg)
+    pass
 
 
 class HTTPError(PyCardPayException):

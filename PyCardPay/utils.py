@@ -6,12 +6,10 @@ import base64
 import codecs
 import datetime as dt
 import hashlib
-
-from lxml import etree
-from lxml.builder import E
+import os
+import pystache
 import requests
 
-from .exceptions import HTTPError, XMLParsingError
 
 def order_to_xml(order, items=None, billing=None, shipping=None, card=None, recurring=None):
     """Creates order xml
@@ -114,20 +112,43 @@ def order_to_xml(order, items=None, billing=None, shipping=None, card=None, recu
 
     # <order ...></order>
     e_order = E.order(
+        
+        # mandatory
         wallet_id=str(order['wallet_id']),
         number=str(order['number']),
-        description=order.get('description', ''),
-        amount=str(order['amount']),
+        description=order['description'],
         email=order['email'],
+	currency=order['currency'],
+	# optional
         is_two_phase='yes' if order.get('is_two_phase') is True else 'no',
-        is_gateway='yes' if order.get('is_gateway') is True else 'no',
-        locale=order.get('locale', 'en'),
+        recurring_begin='yes' if order.get('recurring_begin') is True else 'no',
     )
-    if order.get('currency'):
-        e_order.set('currency', order['currency'])
-    if e_order.get('is_gateway') == 'yes' and order.get('ip'):
-        e_order.set('ip', order.get('ip'))
-
+    
+    if order.get('authentication_request', False) is False:
+        e_order.set('amount', str(order['amount']))
+    if order.get('recurring_id'):
+        e_order.set('recurring_id', order['recurring_id'])
+    if order.get('generate_card_token') is True:
+        e_order.set('generate_card_token', 'yes')
+    if order.get('card_token'):
+        e_order.set('card_token', order['card_token'])
+    if order.get('authentication_request') is True:
+        e_order.set('authentication_request', 'yes')
+    if order.get('note'):
+        e_order.set('note', order['note'])
+    if order.get('success_url'):
+        e_order.set('success_url', order['success_url'])
+    if order.get('decline_url'):
+        e_order.set('decline_url', order['decline_url'])
+    if order.get('locale'):
+        e_order.set('locale', order['locale'])
+    if order.get('cancel_url'):
+        e_order.set('cancel_url', order['cancel_url'])
+    if order.get('name'):
+        e_order.set('name', order['name'])
+    if order.get('customer_id'): 
+        e_order.set('customer_id', order['customer_id'])
+		
     # <order><item ... /></order>
     for item in items:
         e_item = E.order_item(
@@ -160,7 +181,7 @@ def order_to_xml(order, items=None, billing=None, shipping=None, card=None, recu
         if recurring.get('count'):
             e_recurring.set('count', str(recurring.get('count')))
         e_order.append(e_recurring)
-
+    
     return e_order
 
 
@@ -208,7 +229,6 @@ def xml_check_sha512(base64_string, sha512, secret):
     dec_string = base64.standard_b64decode(base64_string)
     return hashlib.sha512(dec_string + secret).hexdigest() == sha512
 
-
 def parse_response(xml):
     """Parse XML from string
 
@@ -217,11 +237,17 @@ def parse_response(xml):
     :raises: :class:`PyCardPay.exceptions.XMLParsingError` if lxml failed to parse string
     :returns: :class:`lxml.etree.Element`
     """
-    try:
-        return etree.fromstring(xml)
-    except etree.Error as e:
-        raise XMLParsingError(u'Failed to parse response from CardPay service: {}'.format(e), xml)
+    r = {}
 
+    try:
+        xml = etree.fromstring(xml)
+        for key in xml.keys():
+            value = xml.get(key)
+            r.update({key:value})
+    except etree.Error as e:
+        raise XMLParsingError(u'Failed to parse response from CardPay service: {}'.format(e))
+
+    return r
 
 def make_http_request(url, method='get', **kwargs):
     """Make http get request to *url* passing *kwargs* as arguments
